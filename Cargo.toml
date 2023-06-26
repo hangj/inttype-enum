@@ -1,0 +1,20 @@
+[package]
+name = "inttype-enum"
+version = "0.1.0"
+edition = "2021"
+authors = ["hangj <guijie.han@gmail.com>"]
+readme = "README.md"
+description = "Converts an [`enum`] into an [`inttype`], and try to convert it back"
+license = "MIT"
+repository = "https://github.com/hangj/inttype-enum"
+documentation = "https://docs.rs/inttype-enum/"
+exclude = ["/.github/*", "/.gitattributes", "/appveyor.yml", "/Changelog.md", "/clippy.toml", "/codecov.yml"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.28"
+syn = { version = "2.0.20", features = ["full"] }
