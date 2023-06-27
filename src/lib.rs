@@ -1,33 +1,7 @@
-//! Converts an [`enum`] into an [`inttype`], and try to convert it back
-//! 
-//! Usage example:  
-//! ```
-//! #[derive(IntType)]
-//! #[repr(u8)]
-//! enum Cmd {
-//!     Connect = 1,
-//!     Bind = 2,
-//!     Udp = 3,
-//! }
-//! 
-//! let conn: u8 = Cmd::Connect.into();
-//! assert!(matches!(Cmd::try_from(conn), Ok(Cmd::Connect)));
-//! assert!(matches!(Cmd::try_from(0), Err(_)));
-//! 
-//! #[derive(IntType)]
-//! #[repr(u8)]
-//! enum Method {
-//!     A = 1,
-//!     B = 2,
-//!     #[default]
-//!     C = 3,
-//! }
-//! assert!(matches!(1.into(), Method::A));
-//! assert!(matches!(0.into(), Method::C));
-//! ```
+#![doc=include_str!("../README.md")]
 
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, ItemEnum, Meta, Type, Result, Error, spanned::Spanned};
+use syn::{parse_macro_input, ItemEnum, Meta, Type, Error, spanned::Spanned};
 use quote::quote;
 
 
@@ -36,7 +10,7 @@ pub fn inttype(input: TokenStream) -> TokenStream {
     let item = parse_macro_input!(input as ItemEnum);
 
     let ident = &item.ident;
-    let ty = item.attrs.iter().find_map(|attr| {
+    let Some(ty) = item.attrs.iter().find_map(|attr| {
         let Meta::List(ref meta_list) = attr.meta else {
             return None;
         };
@@ -45,7 +19,10 @@ pub fn inttype(input: TokenStream) -> TokenStream {
         }
 
         syn::parse2::<Type>(meta_list.tokens.clone()).ok()
-    }).expect("no repr(inttype) provided");
+    }) else {
+        return Error::new(item.span(), "no #[repr(inttype)] provided.\n`inttype` can be one of `u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, and isize`")
+        .into_compile_error().into();
+    };
 
     let mut default_var = None;
     let mut result = None;
@@ -107,10 +84,12 @@ pub fn inttype(input: TokenStream) -> TokenStream {
                     )*
                     match value {
                         #( #var => Ok(Self::#var), )*
-                        _ => Err(Self::Error::new(
-                            io::ErrorKind::Unsupported, 
-                            format!("unsupported value: {value}"),
-                        ))
+                        _ => Err(
+                                Self::Error::new(
+                                   io::ErrorKind::Unsupported, 
+                                    format!("unsupported value: {value}"),
+                                )
+                        )
                     }
                 }
             }

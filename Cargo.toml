@@ -18,3 +18,4 @@ proc-macro = true
 [dependencies]
 quote = "1.0.28"
 syn = { version = "2.0.20", features = ["full"] }
+# proc-macro2 = "1.0.63"
