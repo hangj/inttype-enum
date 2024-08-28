@@ -75,7 +75,7 @@ pub fn inttype(input: TokenStream) -> TokenStream {
     } else {
         quote! {
             impl TryFrom<#ty> for #ident {
-                type Error = io::Error;
+                type Error = std::io::Error;
     
                 fn try_from(value: #ty) -> Result<Self, Self::Error> {
                     #![allow(non_upper_case_globals)]
@@ -86,7 +86,7 @@ pub fn inttype(input: TokenStream) -> TokenStream {
                         #( #var => Ok(Self::#var), )*
                         _ => Err(
                                 Self::Error::new(
-                                   io::ErrorKind::Unsupported, 
+                                   std::io::ErrorKind::Unsupported, 
                                     format!("unsupported value: {value}"),
                                 )
                         )
