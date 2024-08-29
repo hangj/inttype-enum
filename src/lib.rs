@@ -87,7 +87,7 @@ pub fn inttype(input: TokenStream) -> TokenStream {
                         _ => Err(
                                 Self::Error::new(
                                    std::io::ErrorKind::Unsupported, 
-                                    format!("unsupported value: {value}"),
+                                    format!("unsupported value({}) for {}", value, stringify!(#ident)),
                                 )
                         )
                     }
