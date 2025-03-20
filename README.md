@@ -13,7 +13,9 @@ Usage examples:
 inttype-enum = "0.1"
 ```
 
-```rust
+```no_run
+use inttype_enum::IntType;
+
 #[derive(IntType)]
 #[repr(u8)]
 enum Cmd {
@@ -27,7 +29,9 @@ assert!(matches!(Cmd::try_from(conn), Ok(Cmd::Connect)));
 assert!(matches!(Cmd::try_from(0), Err(_)));
 ```
 
-```rust
+```no_run
+use inttype_enum::IntType;
+
 #[derive(IntType)]
 #[repr(u8)]
 enum Method {
