@@ -21,4 +21,8 @@ enum Test2 {
 fn test() {
     assert_eq!(Test::try_from(255), Ok(Test::Hello));
     assert_eq!(Test::try_from(0), Err(0));
+
+    assert_eq!(u8::from(Test2::A) , 0);
+    assert_eq!(u8::from(Test2::B(11)) , 11);
+    assert_eq!(u8::from(Test2::B(16)) , 16);
 }

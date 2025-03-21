@@ -123,10 +123,12 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
 
     let ty_str = ty.to_token_stream().to_string();
 
-    // println!("ty: {}", ty_str);
-
     let mut checker = RangeChecker::new(ty_str.clone()).unwrap();
-    let mut vars = Vec::with_capacity(item.variants.len());
+    // let mut variants = Vec::with_capacity(item.variants.len());
+    let mut unit_variants = Vec::with_capacity(item.variants.len());
+    let mut unit_discriminant = Vec::with_capacity(item.variants.len());
+    let mut unnamed_variants = Vec::with_capacity(item.variants.len());
+    let mut unnamed_ranges = Vec::with_capacity(item.variants.len());
     let mut ranges = Vec::with_capacity(item.variants.len());
 
     for v in item.variants.iter() {
@@ -142,7 +144,7 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
                 }
                 for unamed in fields.unnamed.iter() {
                     if unamed.ty.to_token_stream().to_string() != ty_str {
-                        return Error::new(fields.span(), &format!("Unnamed variant's field must be the same as its repr: {}", ty.into_token_stream())).into_compile_error().into();
+                        return Error::new(fields.span(), &format!("Unnamed variant's field must be the same type as its repr: {}", ty.into_token_stream())).into_compile_error().into();
                     }
                 }
 
@@ -152,7 +154,7 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
                     if attr.path().is_ident("range") {
                         range_cnt += 1;
                         if range_cnt > 1 {
-                            return Error::new(fields.span(), "Only one range expression must be provided for Unnamed variant").into_compile_error().into();
+                            return Error::new(attr.path().span(), "Only one range attribute must be provided for Unnamed variant").into_compile_error().into();
                         }
                         let range: ExprRange = match attr.parse_args() {
                             Ok(r) => r,
@@ -166,11 +168,13 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
                             return e.into_compile_error().into();
                         }
 
-                        ranges.push(range);
+                        ranges.push(range.clone());
+                        unnamed_variants.push(&v.ident);
+                        unnamed_ranges.push(range);
                     }
                 }
                 if range_cnt != 1 {
-                    return Error::new(fields.span(), "one range expression must be provided for Unnamed variant").into_compile_error().into();
+                    return Error::new(fields.span(), "one range attribute must be provided for Unnamed variant").into_compile_error().into();
                 }
             },
             //#[repr(u8)] #[derive(IntType)] enum { a=0, }
@@ -187,62 +191,92 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
                             return Error::new(n.span(), e.to_string()).into_compile_error().into();
                         }
                         ranges.push(range);
+                        unit_discriminant.push(n);
+                        unit_variants.push(&v.ident);
                     },
                     None => return Error::new(v.span(), "must specify discriminant, like A=0").into_compile_error().into(),
                 }
             },
         }
         // println!("ident: {}", v.ident.to_string());
-        vars.push(&v.ident);
     }
 
     println!("checker.is_empty(): {}", checker.is_empty());
     println!("ranges: {:?}", ranges.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
+    println!("ty: {}", ty.to_token_stream());
+    println!("ident: {}", ident);
+    println!("unit_variants: {:?}", unit_variants);
+    println!("unit_discriminant: {:?}", unit_discriminant.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
+    println!("unnamed_variants: {:?}", unnamed_variants);
+    println!("unnamed_ranges: {:?}", unnamed_ranges.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
 
-    quote!{}.into()
 
-    // let mut token_stream = quote! {
-    //     impl From<#ident> for #ty {
-    //         fn from(value: #ident) -> Self {
-    //             value as Self
-    //         }
-    //     }
-    // };
+    let mut token_stream = quote! {
+        impl From<#ident> for #ty {
+            fn from(value: #ident) -> Self {
+                match value {
+                    #(
+                        #ident::#unit_variants => #unit_discriminant,
+                    )*
+                    #(
+                        #ident::#unnamed_variants(n) => n,
+                    )*
+                }
+            }
+        }
 
-    // let from = if let Some(default_var) = default_var {
-    //     quote! {
-    //         impl From<#ty> for #ident {
-    //             fn from(value: #ty) -> Self {
-    //                 #![allow(non_upper_case_globals)]
-    //                 #(
-    //                     const #vars: #ty = #ident::#vars as #ty;
-    //                 )*
-    //                 match value {
-    //                     #( #vars => Self::#vars, )*
-    //                     _ => Self::#default_var,
-    //                 }
-    //             }
-    //         }
-    //     }
-    // } else {
-    //     quote! {
-    //         impl TryFrom<#ty> for #ident {
-    //             type Error = #ty;
+        impl #ident {
+            pub fn is_valid(&self) -> bool {
+                match self {
+                    #(
+                        Self::#unit_variants => true,
+                    )*
+                    #(
+                        Self::#unnamed_variants(n) => match n {
+                            #unnamed_ranges => true,
+                            _ => false,
+                        },
+                    )*
+                }
+            }
+        }
+    };
+
+    let ty_to_ident = if checker.is_empty() {
+        quote! {
+            impl From<#ty> for #ident {
+                fn try_from(value: #ty) -> Self {
+                    match value {
+                        #(
+                            #unit_discriminant => Self::#unit_variants,
+                        )*
+                        #(
+                            #unnamed_ranges => Self::#unnamed_variants(value),
+                        )*
+                    }
+                }
+            }
+        }
+    } else {
+        quote! {
+            impl TryFrom<#ty> for #ident {
+                type Error = #ty;
     
-    //             fn try_from(value: #ty) -> Result<Self, Self::Error> {
-    //                 #![allow(non_upper_case_globals)]
-    //                 #(
-    //                     const #vars: #ty = #ident::#vars as #ty;
-    //                 )*
-    //                 match value {
-    //                     #( #vars => Ok(Self::#vars), )*
-    //                     _ => Err(value)
-    //                 }
-    //             }
-    //         }
-    //     }
-    // };
+                fn try_from(value: #ty) -> Result<Self, Self::Error> {
+                    match value {
+                        #(
+                            #unit_discriminant => Ok(Self::#unit_variants),
+                        )*
+                        #(
+                            #unnamed_ranges => Ok(Self::#unnamed_variants(value)),
+                        )*
+                        _ => Err(value)
+                    }
+                }
+            }
+        }
+    };
 
-    // token_stream.extend(from.into_iter());
-    // token_stream.into()
+    token_stream.extend(ty_to_ident.into_iter());
+    token_stream.into()
 }

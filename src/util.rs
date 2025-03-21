@@ -4,9 +4,7 @@ use syn::{spanned::Spanned, Error, ExprRange};
 use crate::int_range_ext::*;
 
 pub fn expr_to_range<T: Utils>(expr: &ExprRange) -> Result<RangeInclusive<T>, Error> 
-    where 
-        T: core::str::FromStr, 
-        <T as core::str::FromStr>::Err: core::fmt::Display,
+    where <T as core::str::FromStr>::Err: core::fmt::Display,
 {
     let start = match &expr.start {
         Some(expr) => match expr.as_ref() {
@@ -257,20 +255,31 @@ mod tests {
     }
 
     #[test]
-    fn test_calc() {
-        let mut calc = RangeChecker::new("u8".to_string()).unwrap();
-        println!("{:?}", calc);
+    fn test_checker() {
+        let mut checker = RangeChecker::new("u8".to_string()).unwrap();
+        println!("{:?}", checker);
 
         let expr = syn::parse_str::<ExprRange>("1..=10").unwrap();
-        calc.substract(&expr).unwrap();
-        println!("{:?}", calc);
+        checker.substract(&expr).unwrap();
+        println!("{:?}", checker);
 
         let expr = syn::parse_str::<ExprRange>("5..=15").unwrap();
-        assert!(calc.substract(&expr).is_err());
+        assert!(checker.substract(&expr).is_err());
 
         let expr = syn::parse_str::<ExprRange>("20..30").unwrap();
-        calc.substract(&expr).unwrap();
-        println!("{:?}", calc);
+        checker.substract(&expr).unwrap();
+        println!("{:?}", checker);
+
+        checker.substract(&syn::parse_str::<ExprRange>("0..=0").unwrap()).unwrap();
+        println!("{:?}", checker);
+
+        checker.substract(&syn::parse_str::<ExprRange>("30..").unwrap()).unwrap();
+        println!("{:?}", checker);
+
+        checker.substract(&syn::parse_str::<ExprRange>("11..20").unwrap()).unwrap();
+        println!("{:?}", checker);
+
+        assert!(checker.is_empty());
     }
     
 }

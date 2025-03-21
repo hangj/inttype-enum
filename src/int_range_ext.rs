@@ -1,14 +1,18 @@
 use core::ops::{Add, Bound, RangeBounds, RangeInclusive, Sub};
+use core::fmt::{Display, Debug};
+use core::str::FromStr;
 
-
-pub(crate) trait Utils where Self: Copy + PartialOrd + Ord + Add<Output = Self> + Sub<Output = Self> {
+pub(crate) trait Utils
+    where
+        Self: Copy + PartialOrd + Ord + Display + Debug + FromStr + Add<Output = Self> + Sub<Output = Self>
+{
     fn zero() -> Self;
     fn one() -> Self;
     fn max_() -> Self;
     fn min_() -> Self;
 }
 
-macro_rules! impl_one {
+macro_rules! impl_integers {
     ($($ident: ident),*) => {
         $(
             impl Utils for $ident {
@@ -21,7 +25,7 @@ macro_rules! impl_one {
     };
 }
 
-impl_one!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
+impl_integers!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
 
 
 pub(crate) trait IntRangeExt<T: Utils> {
