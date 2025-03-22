@@ -10,7 +10,7 @@ Usage examples:
 
 ```toml
 [dependencies]
-inttype-enum = "0.1"
+inttype-enum = "0.2"
 ```
 
 ```rust
