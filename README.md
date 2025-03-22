@@ -13,7 +13,7 @@ Usage examples:
 inttype-enum = "0.1"
 ```
 
-```no_run
+```rust
 use inttype_enum::IntType;
 
 #[derive(IntType)]
@@ -29,7 +29,7 @@ assert!(matches!(Cmd::try_from(conn), Ok(Cmd::Connect)));
 assert!(matches!(Cmd::try_from(0), Err(_)));
 ```
 
-```no_run
+```rust
 use inttype_enum::IntType;
 
 #[derive(IntType)]
@@ -42,4 +42,24 @@ enum Method {
 }
 assert!(matches!(1.into(), Method::A));
 assert!(matches!(0.into(), Method::C));
+```
+
+```rust
+use inttype_enum::IntRange;
+
+#[repr(u8)]
+#[derive(IntRange)]
+#[derive(Debug, PartialEq, Eq)]
+enum Test {
+    A = 0x00,
+    #[range(1..16)]
+    B(u8),
+    #[range(16..)]
+    C(u8),
+}
+
+assert_eq!(Test::try_from(0), Ok(Test::A));
+assert!(0u8 == Test::A.into());
+assert_eq!(Test::B(16).is_valid(), false);
+assert_eq!(Test::try_from(16), Ok(Test::C(16)));
 ```

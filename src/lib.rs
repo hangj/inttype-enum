@@ -101,7 +101,7 @@ pub fn inttype(input: TokenStream) -> TokenStream {
 }
 
 
-#[proc_macro_derive(NewIntType, attributes(default, range))]
+#[proc_macro_derive(IntRange, attributes(range,))]
 pub fn new_inttype(input: TokenStream) -> TokenStream {
     let item = parse_macro_input!(input as ItemEnum);
 
@@ -167,10 +167,11 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
                         if let Err(e) = checker.substract(&range) {
                             return e.into_compile_error().into();
                         }
+                        let inclusive_expr = checker.expr_to_inclusive_expr(&range).unwrap();
 
-                        ranges.push(range.clone());
+                        ranges.push(range);
                         unnamed_variants.push(&v.ident);
-                        unnamed_ranges.push(range);
+                        unnamed_ranges.push(inclusive_expr);
                     }
                 }
                 if range_cnt != 1 {
@@ -179,6 +180,9 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
             },
             //#[repr(u8)] #[derive(IntType)] enum { a=0, }
             syn::Fields::Unit => {
+                if v.attrs.iter().any(|attr|attr.path().is_ident("range")) {
+                    return Error::new(v.span(), "Unit variant should not have `range` attribute").into_compile_error().into();
+                }
                 // let s = v.ident.to_string();
                 // println!("v: {}", v.to_token_stream());
                 // println!("cur unit ident: {}", v.ident.to_string());
@@ -201,14 +205,14 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
         // println!("ident: {}", v.ident.to_string());
     }
 
-    println!("checker.is_empty(): {}", checker.is_empty());
-    println!("ranges: {:?}", ranges.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
-    println!("ty: {}", ty.to_token_stream());
-    println!("ident: {}", ident);
-    println!("unit_variants: {:?}", unit_variants);
-    println!("unit_discriminant: {:?}", unit_discriminant.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
-    println!("unnamed_variants: {:?}", unnamed_variants);
-    println!("unnamed_ranges: {:?}", unnamed_ranges.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
+    // println!("checker.is_empty(): {}", checker.is_empty());
+    // println!("ranges: {:?}", ranges.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
+    // println!("ty: {}", ty.to_token_stream());
+    // println!("ident: {}", ident);
+    // println!("unit_variants: {:?}", unit_variants);
+    // println!("unit_discriminant: {:?}", unit_discriminant.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
+    // println!("unnamed_variants: {:?}", unnamed_variants);
+    // println!("unnamed_ranges: {:?}", unnamed_ranges.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
 
 
     let mut token_stream = quote! {
@@ -225,6 +229,31 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
             }
         }
 
+        // impl PartialEq<#ident> for #ty {
+        //     fn eq(&self, other: &#ident) -> bool {
+        //         match other {
+        //             #(
+        //                 #ident::#unit_variants => #unit_discriminant == *self,
+        //             )*
+        //             #(
+        //                 #ident::#unnamed_variants(n) => *n == *self,
+        //             )*
+        //         }
+        //     }
+        // }
+        // impl PartialEq<#ty> for #ident {
+        //     fn eq(&self, other: &#ty) -> bool {
+        //         match self {
+        //             #(
+        //                 #ident::#unit_variants => #unit_discriminant == *other,
+        //             )*
+        //             #(
+        //                 #ident::#unnamed_variants(n) => *n == *other,
+        //             )*
+        //         }
+        //     }
+        // }
+
         impl #ident {
             pub fn is_valid(&self) -> bool {
                 match self {
@@ -232,6 +261,8 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
                         Self::#unit_variants => true,
                     )*
                     #(
+                        #[allow(unreachable_patterns)]
+                        #[allow(non_contiguous_range_endpoints)]
                         Self::#unnamed_variants(n) => match n {
                             #unnamed_ranges => true,
                             _ => false,
@@ -245,7 +276,7 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
     let ty_to_ident = if checker.is_empty() {
         quote! {
             impl From<#ty> for #ident {
-                fn try_from(value: #ty) -> Self {
+                fn from(value: #ty) -> Self {
                     match value {
                         #(
                             #unit_discriminant => Self::#unit_variants,
@@ -263,6 +294,8 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
                 type Error = #ty;
     
                 fn try_from(value: #ty) -> Result<Self, Self::Error> {
+                    #[allow(unreachable_patterns)]
+                    #[allow(non_contiguous_range_endpoints)]
                     match value {
                         #(
                             #unit_discriminant => Ok(Self::#unit_variants),

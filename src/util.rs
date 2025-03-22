@@ -208,6 +208,33 @@ impl RangeChecker {
         }
         Ok(())
     }
+
+    pub fn expr_to_inclusive_expr(&self, expr: &ExprRange) -> Result<ExprRange, Error> {
+        macro_rules! fuck {
+            ($ident: ident) => {{
+                type T = $ident;
+
+                let r = expr_to_range::<T>(expr)?;
+                Ok(syn::parse_str::<ExprRange>(format!("{r:?}").as_str())?)
+            }};
+        }
+
+        match self.typ.as_str() {
+            "u8" => fuck!(u8),
+            "u16" => fuck!(u16),
+            "u32" => fuck!(u32),
+            "u64" => fuck!(u64),
+            "u128" => fuck!(u128),
+            "usize" => fuck!(usize),
+            "i8" => fuck!(i8),
+            "i16" => fuck!(i16),
+            "i32" => fuck!(i32),
+            "i64" => fuck!(i64),
+            "i128" => fuck!(i128),
+            "isize" => fuck!(isize),
+            _ => Err(Error::new(expr.span(), "This is not possible!")),
+        }
+    }
 }
 
 

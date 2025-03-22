@@ -27,7 +27,7 @@ macro_rules! impl_integers {
 
 impl_integers!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
 
-
+#[allow(unused)]
 pub(crate) trait IntRangeExt<T: Utils> {
     fn is_empty(&self) -> bool;
 
