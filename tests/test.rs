@@ -1,15 +1,12 @@
 use inttype_enum::*;
 
-
-#[derive(Debug, PartialEq, Eq)]
-#[derive(IntType)]
+#[derive(Debug, PartialEq, Eq, IntType)]
 #[repr(u8)]
 enum Test {
     Hello = 255,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-#[derive(IntRange)]
+#[derive(Debug, PartialEq, Eq, IntRange)]
 #[repr(u8)]
 enum Test2 {
     A = 0x00,
@@ -19,16 +16,14 @@ enum Test2 {
     C(u8),
 }
 
-#[derive(Debug, PartialEq, Eq)]
-#[derive(IntRange)]
+#[derive(Debug, PartialEq, Eq, IntRange)]
 #[repr(u8)]
 enum Test3 {
     #[range(..)]
     A(u8),
 }
 
-#[derive(Debug, PartialEq, Eq)]
-#[derive(IntRange)]
+#[derive(Debug, PartialEq, Eq, IntRange)]
 #[repr(u8)]
 enum Test4 {
     #[range(..128)]

@@ -1,10 +1,17 @@
+use core::fmt::{Debug, Display};
 use core::ops::{Add, Bound, RangeBounds, RangeInclusive, Sub};
-use core::fmt::{Display, Debug};
 use core::str::FromStr;
 
 pub(crate) trait Utils
-    where
-        Self: Copy + PartialOrd + Ord + Display + Debug + FromStr + Add<Output = Self> + Sub<Output = Self>
+where
+    Self: Copy
+        + PartialOrd
+        + Ord
+        + Display
+        + Debug
+        + FromStr
+        + Add<Output = Self>
+        + Sub<Output = Self>,
 {
     fn zero() -> Self;
     fn one() -> Self;
@@ -35,73 +42,79 @@ pub(crate) trait IntRangeExt<T: Utils> {
     fn to_inclusive(&self) -> Result<RangeInclusive<T>, ()>;
 
     /// Both `self` and `other` must not be empty
-    fn contains_subrange<Other: RangeBounds<T> >(&self, other: &Other) -> Result<bool, ()>;
+    fn contains_subrange<Other: RangeBounds<T>>(&self, other: &Other) -> Result<bool, ()>;
 
     fn equal<Other: RangeBounds<T>>(&self, other: &Other) -> bool;
 
     /// `self` must contains_subrange `other`
-    fn substract<Other: RangeBounds<T>>(&self, other: &Other) -> Result<(Option<RangeInclusive<T>>, Option<RangeInclusive<T>>), ()>;
+    #[allow(clippy::type_complexity)]
+    fn substract<Other: RangeBounds<T>>(
+        &self,
+        other: &Other,
+    ) -> Result<(Option<RangeInclusive<T>>, Option<RangeInclusive<T>>), ()>;
 
     /// Both `self` and `other` must not be empty
     fn intersect<Other: RangeBounds<T>>(&self, other: &Other) -> Result<bool, ()>;
 }
 
-impl<T: Utils, U: RangeBounds<T> > IntRangeExt<T> for U {
+impl<T: Utils, U: RangeBounds<T>> IntRangeExt<T> for U {
     fn is_empty(&self) -> bool {
         match self.start_bound() {
             Bound::Included(s) => {
                 match self.end_bound() {
                     Bound::Included(e) => {
                         // [s, e]
-                        !(s <= e)
-                    },
+                        s > e
+                    }
                     Bound::Excluded(e) => {
                         // [s, e)
-                        !(s < e)
-                    },
+                        s >= e
+                    }
                     Bound::Unbounded => {
                         // [s..
                         false
-                    },
+                    }
                 }
-            },
+            }
             Bound::Excluded(s) => {
                 match self.end_bound() {
                     Bound::Included(e) => {
                         // (s, e]
-                        !(s < e)
-                    },
+                        s >= e
+                    }
                     Bound::Excluded(e) => {
                         // (s, e)
                         !(s < e && *s + T::one() < *e)
-                    },
+                    }
                     Bound::Unbounded => {
                         // (s..
-                        !(*s < T::max_())
-                    },
+                        *s >= T::max_()
+                    }
                 }
-            },
+            }
             Bound::Unbounded => {
                 match self.end_bound() {
                     Bound::Included(e) => {
                         // ..=e
-                        !(T::min_() <= *e)
-                    },
+                        T::min_() > *e
+                    }
                     Bound::Excluded(e) => {
                         // ..e
-                        !(T::min_() < *e)
-                    },
+                        T::min_() >= *e
+                    }
                     Bound::Unbounded => {
                         // ..
                         false
-                    },
+                    }
                 }
-            },
+            }
         }
     }
 
     fn to_inclusive(&self) -> Result<RangeInclusive<T>, ()> {
-        if self.is_empty() { return Err(()); }
+        if self.is_empty() {
+            return Err(());
+        }
 
         let s = match self.start_bound() {
             Bound::Included(n) => *n,
@@ -115,88 +128,114 @@ impl<T: Utils, U: RangeBounds<T> > IntRangeExt<T> for U {
             Bound::Unbounded => T::max_(),
         };
 
-        Ok(s ..= e)
+        Ok(s..=e)
     }
 
-    fn contains_subrange<Other: RangeBounds<T> >(&self, other: &Other) -> Result<bool, ()> {
-        if self.is_empty() || other.is_empty() { return Err(()); }
+    fn contains_subrange<Other: RangeBounds<T>>(&self, other: &Other) -> Result<bool, ()> {
+        if self.is_empty() || other.is_empty() {
+            return Err(());
+        }
 
         match other.start_bound() {
             Bound::Included(n) => {
                 // [n..
-                if !self.contains(n) { return Ok(false); }
-            },
+                if !self.contains(n) {
+                    return Ok(false);
+                }
+            }
             Bound::Excluded(n) => {
                 // (n..
                 match self.start_bound() {
                     Bound::Included(x) => {
                         // (n..
                         // [x..
-                        if x > n && *x > *n + T::one() { return Ok(false); }
-                    },
+                        if x > n && *x > *n + T::one() {
+                            return Ok(false);
+                        }
+                    }
                     Bound::Excluded(x) => {
                         // (n..
                         // (x..
-                        if x > n { return Ok(false); }
-                    },
+                        if x > n {
+                            return Ok(false);
+                        }
+                    }
                     Bound::Unbounded => {
                         // (n..
                         // ..
-                    },
+                    }
                 }
-            },
-            Bound::Unbounded => {
-                match self.start_bound() {
-                    Bound::Included(n) => {
-                        if *n != T::min_() { return Ok(false); }
-                    },
-                    Bound::Excluded(_) => { return Ok(false); },
-                    Bound::Unbounded => {},
+            }
+            Bound::Unbounded => match self.start_bound() {
+                Bound::Included(n) => {
+                    if *n != T::min_() {
+                        return Ok(false);
+                    }
                 }
+                Bound::Excluded(_) => {
+                    return Ok(false);
+                }
+                Bound::Unbounded => {}
             },
         }
         match other.end_bound() {
             Bound::Included(n) => {
                 // ..=n
-                if !self.contains(n) { return Ok(false); }
-            },
+                if !self.contains(n) {
+                    return Ok(false);
+                }
+            }
             Bound::Excluded(n) => {
                 // ..n
                 match self.end_bound() {
                     Bound::Included(x) => {
                         // ..n
                         // ..=x
-                        if x < n && *x + T::one() < *n { return Ok(false); }
-                    },
+                        if x < n && *x + T::one() < *n {
+                            return Ok(false);
+                        }
+                    }
                     Bound::Excluded(x) => {
                         // ..n
                         // ..x
-                        if x < n { return Ok(false); }
-                    },
-                    Bound::Unbounded => {},
+                        if x < n {
+                            return Ok(false);
+                        }
+                    }
+                    Bound::Unbounded => {}
                 }
-            },
+            }
             Bound::Unbounded => {
                 // ..
                 match self.end_bound() {
                     Bound::Included(n) => {
-                        if *n != T::max_() { return Ok(false); }
-                    },
-                    Bound::Excluded(_) => { return Ok(false); },
-                    Bound::Unbounded => {},
+                        if *n != T::max_() {
+                            return Ok(false);
+                        }
+                    }
+                    Bound::Excluded(_) => {
+                        return Ok(false);
+                    }
+                    Bound::Unbounded => {}
                 }
-            },
+            }
         }
 
         Ok(true)
     }
 
     fn equal<Other: RangeBounds<T>>(&self, other: &Other) -> bool {
-        self.contains_subrange(other).unwrap_or(false) && other.contains_subrange(self).unwrap_or(false)
+        self.contains_subrange(other).unwrap_or(false)
+            && other.contains_subrange(self).unwrap_or(false)
     }
 
-    fn substract<Other: RangeBounds<T>>(&self, other: &Other) -> Result<(Option<RangeInclusive<T>>, Option<RangeInclusive<T>>), ()> {
-        if !self.contains_subrange(other).unwrap_or(false) { return Err(()); }
+    fn substract<Other: RangeBounds<T>>(
+        &self,
+        other: &Other,
+    ) -> Result<(Option<RangeInclusive<T>>, Option<RangeInclusive<T>>), ()> {
+        if !self.contains_subrange(other).unwrap_or(false) {
+            return Err(());
+        }
 
         // self.start .. other.start - 1
         let r1 = match self.start_bound() {
@@ -204,51 +243,45 @@ impl<T: Utils, U: RangeBounds<T> > IntRangeExt<T> for U {
                 match other.start_bound() {
                     Bound::Included(e) => {
                         if s < e {
-                            *s ..= *e - T::one()
+                            *s..=*e - T::one()
                         } else {
-                            T::one() ..= T::zero()
+                            T::one()..=T::zero()
                         }
-                    },
+                    }
                     Bound::Excluded(e) => {
                         // [s..
                         // (e..
-                        *s ..= *e
-                    },
-                    Bound::Unbounded => { T::one() ..= T::zero() },
+                        *s..=*e
+                    }
+                    Bound::Unbounded => T::one()..=T::zero(),
                 }
-            },
+            }
             Bound::Excluded(s) => {
                 // (s..
                 match other.start_bound() {
                     Bound::Included(e) => {
                         // (s..
                         // [e..
-                        *s + T::one() ..= *e - T::one()
-                    },
+                        *s + T::one()..=*e - T::one()
+                    }
                     Bound::Excluded(e) => {
                         // (s..
                         // (e..
-                        *s + T::one() ..= *e
-                    },
-                    Bound::Unbounded => {
-                        T::one() ..= T::zero()
-                    },
+                        *s + T::one()..=*e
+                    }
+                    Bound::Unbounded => T::one()..=T::zero(),
                 }
-            },
-            Bound::Unbounded => {
-                match other.start_bound() {
-                    Bound::Included(e) => {
-                        if T::min_() < *e {
-                            T::min_() ..= *e - T::one()
-                        } else {
-                            T::one() ..= T::zero()
-                        }
-                    },
-                    Bound::Excluded(e) => {
-                        T::min_() ..= *e
-                    },
-                    Bound::Unbounded => { T::one() ..= T::zero() },
+            }
+            Bound::Unbounded => match other.start_bound() {
+                Bound::Included(e) => {
+                    if T::min_() < *e {
+                        T::min_()..=*e - T::one()
+                    } else {
+                        T::one()..=T::zero()
+                    }
                 }
+                Bound::Excluded(e) => T::min_()..=*e,
+                Bound::Unbounded => T::one()..=T::zero(),
             },
         };
 
@@ -256,55 +289,39 @@ impl<T: Utils, U: RangeBounds<T> > IntRangeExt<T> for U {
         let r2 = match other.end_bound() {
             Bound::Included(s) => {
                 if *s == T::max_() {
-                    T::one() ..= T::zero()
+                    T::one()..=T::zero()
                 } else {
                     match self.end_bound() {
-                        Bound::Included(e) => {
-                            *s + T::one() ..= *e
-                        },
-                        Bound::Excluded(e) => {
-                            *s + T::one() ..= *e - T::one()
-                        },
-                        Bound::Unbounded => {
-                            *s + T::one() ..= T::max_()
-                        },
+                        Bound::Included(e) => *s + T::one()..=*e,
+                        Bound::Excluded(e) => *s + T::one()..=*e - T::one(),
+                        Bound::Unbounded => *s + T::one()..=T::max_(),
                     }
                 }
+            }
+            Bound::Excluded(s) => match self.end_bound() {
+                Bound::Included(e) => *s..=*e,
+                Bound::Excluded(e) => *s..=*e - T::one(),
+                Bound::Unbounded => *s..=T::max_(),
             },
-            Bound::Excluded(s) => {
-                match self.end_bound() {
-                    Bound::Included(e) => {
-                        *s ..= *e
-                    },
-                    Bound::Excluded(e) => {
-                        *s ..= *e - T::one()
-                    },
-                    Bound::Unbounded => {
-                        *s ..= T::max_()
-                    },
-                }
-            },
-            Bound::Unbounded => { T::one() ..= T::zero() },
+            Bound::Unbounded => T::one()..=T::zero(),
         };
 
-        let r1 = if r1.is_empty() {
-            None
-        } else {
-            Some(r1)
-        };
+        let r1 = if r1.is_empty() { None } else { Some(r1) };
 
-        let r2 = if r2.is_empty() {
-            None
-        } else {
-            Some(r2)
-        };
+        let r2 = if r2.is_empty() { None } else { Some(r2) };
 
-        return Ok((r1, r2));
+        Ok((r1, r2))
     }
 
     fn intersect<Other: RangeBounds<T>>(&self, other: &Other) -> Result<bool, ()> {
-        if self.is_empty() || other.is_empty() { return Err(()); }
-        if self.contains_subrange(other).unwrap_or(false) || other.contains_subrange(self).unwrap_or(false) { return Ok(true); }
+        if self.is_empty() || other.is_empty() {
+            return Err(());
+        }
+        if self.contains_subrange(other).unwrap_or(false)
+            || other.contains_subrange(self).unwrap_or(false)
+        {
+            return Ok(true);
+        }
 
         //   -----
         //      -----
@@ -323,7 +340,6 @@ impl<T: Utils, U: RangeBounds<T> > IntRangeExt<T> for U {
     }
 }
 
-
 #[derive(Debug)]
 pub(crate) struct RangeSubtracter<T> {
     vec: Vec<RangeInclusive<T>>,
@@ -333,7 +349,7 @@ impl<T: Utils> RangeSubtracter<T> {
     /// `range` must not be empty
     pub fn new(range: impl RangeBounds<T>) -> Result<Self, ()> {
         let r = range.to_inclusive()?;
-        Ok(Self {vec: vec![r]})
+        Ok(Self { vec: vec![r] })
     }
 
     pub fn is_empty(&self) -> bool {
@@ -351,31 +367,27 @@ impl<T: Utils> RangeSubtracter<T> {
                         (Some(r1), Some(r2)) => {
                             new_vec.push(r1);
                             new_vec.push(r2);
-                        },
+                        }
                         (Some(r1), None) => {
                             new_vec.push(r1);
-                        },
+                        }
                         (None, Some(r2)) => {
                             new_vec.push(r2);
-                        },
-                        (None, None) => {},
+                        }
+                        (None, None) => {}
                     }
                     ret = Ok(());
-                },
+                }
                 Err(()) => {
                     new_vec.push(r.clone());
-                },
+                }
             }
         }
 
         self.vec = new_vec;
         ret
     }
-
-    
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -410,18 +422,24 @@ mod tests {
 
     #[test]
     fn to_inclusive() {
-        assert_eq!((..).to_inclusive(), Ok(u8::MIN ..= u8::MAX));
-        assert_eq!((u8::MIN..).to_inclusive(), Ok(u8::MIN ..= u8::MAX));
-        assert_eq!((..u8::MAX).to_inclusive(), Ok(u8::MIN ..= u8::MAX-1));
-        assert_eq!((..=u8::MAX).to_inclusive(), Ok(u8::MIN ..= u8::MAX));
-        assert_eq!((10..20).to_inclusive(), Ok(10 ..= 19));
+        assert_eq!((..).to_inclusive(), Ok(u8::MIN..=u8::MAX));
+        assert_eq!((u8::MIN..).to_inclusive(), Ok(u8::MIN..=u8::MAX));
+        assert_eq!((..u8::MAX).to_inclusive(), Ok(u8::MIN..=u8::MAX - 1));
+        assert_eq!((..=u8::MAX).to_inclusive(), Ok(u8::MIN..=u8::MAX));
+        assert_eq!((10..20).to_inclusive(), Ok(10..=19));
         assert_eq!((0..0).to_inclusive(), Err(()));
     }
 
     #[test]
     fn contains_subrange() {
-        assert_eq!((u8::MIN..=u8::MAX).contains_subrange(&(..=u8::MAX)), Ok(true));
-        assert_eq!((..=u8::MAX).contains_subrange(&(u8::MIN..=u8::MAX)), Ok(true));
+        assert_eq!(
+            (u8::MIN..=u8::MAX).contains_subrange(&(..=u8::MAX)),
+            Ok(true)
+        );
+        assert_eq!(
+            (..=u8::MAX).contains_subrange(&(u8::MIN..=u8::MAX)),
+            Ok(true)
+        );
         assert_eq!((u8::MIN..=u8::MAX).contains_subrange(&(..)), Ok(true));
         assert_eq!((..).contains_subrange(&(u8::MIN..u8::MAX)), Ok(true));
         assert_eq!((..).contains_subrange(&(u8::MIN..=u8::MAX)), Ok(true));
@@ -445,14 +463,17 @@ mod tests {
         assert_eq!((2..u8::MAX).contains_subrange(&(3..u8::MAX)), Ok(true));
 
         assert_eq!((2..u8::MAX).contains_subrange(&(1..u8::MAX)), Ok(false));
-        assert_eq!((2..u8::MAX).contains_subrange(&(2..u8::MAX-1)), Ok(true));
-        assert_eq!((2..u8::MAX).contains_subrange(&(2..=u8::MAX-1)), Ok(true));
+        assert_eq!((2..u8::MAX).contains_subrange(&(2..u8::MAX - 1)), Ok(true));
+        assert_eq!((2..u8::MAX).contains_subrange(&(2..=u8::MAX - 1)), Ok(true));
 
         assert_eq!((2..=u8::MAX).contains_subrange(&(2..u8::MAX)), Ok(true));
         assert_eq!((2..=u8::MAX).contains_subrange(&(2..=u8::MAX)), Ok(true));
 
-        assert_eq!((2..=u8::MAX-1).contains_subrange(&(2..u8::MAX)), Ok(true));
-        assert_eq!((2..=u8::MAX-1).contains_subrange(&(2..=u8::MAX)), Ok(false));
+        assert_eq!((2..=u8::MAX - 1).contains_subrange(&(2..u8::MAX)), Ok(true));
+        assert_eq!(
+            (2..=u8::MAX - 1).contains_subrange(&(2..=u8::MAX)),
+            Ok(false)
+        );
 
         assert_eq!((0..10).contains_subrange(&(0..0)), Err(()));
         assert_eq!((0..0).contains_subrange(&(0..10)), Err(()));
@@ -473,12 +494,27 @@ mod tests {
     fn sub() {
         assert_eq!((..).substract(&(u8::MIN..=u8::MAX)), Ok((None, None)));
         assert_eq!((u8::MIN..=u8::MAX).substract(&(..)), Ok((None, None)));
-        assert_eq!((..).substract(&(u8::MIN..u8::MAX)), Ok((None, Some(255..=255u8))));
-        assert_eq!((..=u8::MAX).substract(&(u8::MIN..u8::MAX)), Ok((None, Some(255..=255u8))));
-        assert_eq!((..=u8::MAX).substract(&(..u8::MAX)), Ok((None, Some(255..=255u8))));
-        assert_eq!((..=u8::MAX).substract(&(1..u8::MAX)), Ok((Some(0..=0), Some(255..=255u8))));
+        assert_eq!(
+            (..).substract(&(u8::MIN..u8::MAX)),
+            Ok((None, Some(255..=255u8)))
+        );
+        assert_eq!(
+            (..=u8::MAX).substract(&(u8::MIN..u8::MAX)),
+            Ok((None, Some(255..=255u8)))
+        );
+        assert_eq!(
+            (..=u8::MAX).substract(&(..u8::MAX)),
+            Ok((None, Some(255..=255u8)))
+        );
+        assert_eq!(
+            (..=u8::MAX).substract(&(1..u8::MAX)),
+            Ok((Some(0..=0), Some(255..=255u8)))
+        );
 
-        assert_eq!((0..100).substract(&(30..50)), Ok((Some(0..=29), Some(50..=99))));
+        assert_eq!(
+            (0..100).substract(&(30..50)),
+            Ok((Some(0..=29), Some(50..=99)))
+        );
         assert_eq!((0..100).substract(&(30..100)), Ok((Some(0..=29), None)));
         assert_eq!((0..100).substract(&(0..50)), Ok((None, Some(50..=99))));
 
@@ -517,5 +553,4 @@ mod tests {
         r.substract(&(u8::MIN..=255)).unwrap();
         assert_eq!(r.vec, vec![]);
     }
-
 }

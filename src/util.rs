@@ -1,10 +1,11 @@
 use core::ops::RangeInclusive;
 
-use syn::{spanned::Spanned, Error, ExprRange};
 use crate::int_range_ext::*;
+use syn::{spanned::Spanned, Error, ExprRange};
 
-pub fn expr_to_range<T: Utils>(expr: &ExprRange) -> Result<RangeInclusive<T>, Error> 
-    where <T as core::str::FromStr>::Err: core::fmt::Display,
+fn expr_to_range<T: Utils>(expr: &ExprRange) -> Result<RangeInclusive<T>, Error>
+where
+    <T as core::str::FromStr>::Err: core::fmt::Display,
 {
     let start = match &expr.start {
         Some(expr) => match expr.as_ref() {
@@ -39,24 +40,25 @@ pub fn expr_to_range<T: Utils>(expr: &ExprRange) -> Result<RangeInclusive<T>, Er
     match &expr.limits {
         syn::RangeLimits::HalfOpen(_dot_dot) => {
             if expr.end.is_none() {
-                if (start ..= end).is_empty() {
+                if (start..=end).is_empty() {
                     return Err(Error::new(expr.span(), "range is empty"));
                 }
-                Ok(start ..= end)
+                Ok(start..=end)
             } else {
-                let r = (start..end).to_inclusive().map_err(|_| Error::new(expr.span(), "range is empty"))?;
+                let r = (start..end)
+                    .to_inclusive()
+                    .map_err(|_| Error::new(expr.span(), "range is empty"))?;
                 Ok(r)
             }
-        },
+        }
         syn::RangeLimits::Closed(_dot_dot_eq) => {
-            if (start ..= end).is_empty() {
+            if (start..=end).is_empty() {
                 return Err(Error::new(expr.span(), "range is empty"));
             }
-            Ok(start ..= end)
-        },
+            Ok(start..=end)
+        }
     }
 }
-
 
 #[allow(unused)]
 struct Dummy(i32);
@@ -76,7 +78,7 @@ impl core::fmt::Debug for RangeChecker {
                 type T = $ident;
 
                 let substracter = self.ptr.as_ptr().cast::<RangeSubtracter<T>>();
-                ds.field("ranges", unsafe{&*substracter});
+                ds.field("ranges", unsafe { &*substracter });
             }};
         }
 
@@ -93,7 +95,7 @@ impl core::fmt::Debug for RangeChecker {
             "i64" => fuck!(i64),
             "i128" => fuck!(i128),
             "isize" => fuck!(isize),
-            _ => {},
+            _ => {}
         }
 
         ds.finish()
@@ -121,7 +123,7 @@ impl Drop for RangeChecker {
             "i64" => fuck!(i64),
             "i128" => fuck!(i128),
             "isize" => fuck!(isize),
-            _ => {},
+            _ => {}
         }
     }
 }
@@ -159,7 +161,7 @@ impl RangeChecker {
                 type T = $ident;
 
                 let substracter = self.ptr.as_ptr().cast::<RangeSubtracter<T>>();
-                unsafe{(&*substracter).is_empty()}
+                unsafe { (&*substracter).is_empty() }
             }};
         }
 
@@ -187,7 +189,8 @@ impl RangeChecker {
 
                 let r = expr_to_range::<T>(expr)?;
                 let substracter = self.ptr.as_ptr().cast::<RangeSubtracter<T>>();
-                unsafe{(&mut *substracter).substract(&r)}.map_err(|_| Error::new(expr.span(), "range duplicated"))?;
+                unsafe { (&mut *substracter).substract(&r) }
+                    .map_err(|_| Error::new(expr.span(), "range duplicated"))?;
             }};
         }
 
@@ -204,7 +207,7 @@ impl RangeChecker {
             "i64" => fuck!(i64),
             "i128" => fuck!(i128),
             "isize" => fuck!(isize),
-            _ => {},
+            _ => {}
         }
         Ok(())
     }
@@ -236,7 +239,6 @@ impl RangeChecker {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -297,16 +299,21 @@ mod tests {
         checker.substract(&expr).unwrap();
         println!("{:?}", checker);
 
-        checker.substract(&syn::parse_str::<ExprRange>("0..=0").unwrap()).unwrap();
+        checker
+            .substract(&syn::parse_str::<ExprRange>("0..=0").unwrap())
+            .unwrap();
         println!("{:?}", checker);
 
-        checker.substract(&syn::parse_str::<ExprRange>("30..").unwrap()).unwrap();
+        checker
+            .substract(&syn::parse_str::<ExprRange>("30..").unwrap())
+            .unwrap();
         println!("{:?}", checker);
 
-        checker.substract(&syn::parse_str::<ExprRange>("11..20").unwrap()).unwrap();
+        checker
+            .substract(&syn::parse_str::<ExprRange>("11..20").unwrap())
+            .unwrap();
         println!("{:?}", checker);
 
         assert!(checker.is_empty());
     }
-    
 }

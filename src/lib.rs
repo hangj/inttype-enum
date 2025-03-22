@@ -5,11 +5,10 @@ mod util;
 use util::RangeChecker;
 
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, spanned::Spanned, Error, ExprRange, ItemEnum, Meta, Type};
 use quote::{quote, ToTokens};
+use syn::{parse_macro_input, spanned::Spanned, Error, ExprRange, ItemEnum, Meta, Type};
 
-
-#[proc_macro_derive(IntType, attributes(default, ))]
+#[proc_macro_derive(IntType, attributes(default,))]
 pub fn inttype(input: TokenStream) -> TokenStream {
     let item = parse_macro_input!(input as ItemEnum);
 
@@ -31,24 +30,32 @@ pub fn inttype(input: TokenStream) -> TokenStream {
 
     let mut default_var = None;
     let mut result = None;
-    let var = item.variants.iter().map(|v| {
-        if v.attrs.iter().find(|attr| {
-            attr.path().is_ident("default")
-        }).is_some() {
-            if default_var.is_some() {
-
-                result = Some(Error::new(v.span(), "Multiple default variables supplied! should be only one!")
-                        .into_compile_error());
+    let var = item
+        .variants
+        .iter()
+        .map(|v| {
+            if v.attrs.iter().any(|attr| attr.path().is_ident("default")) {
+                if default_var.is_some() {
+                    result = Some(
+                        Error::new(
+                            v.span(),
+                            "Multiple default variables supplied! should be only one!",
+                        )
+                        .into_compile_error(),
+                    );
+                }
+                default_var = Some(&v.ident);
             }
-            default_var = Some(&v.ident);
-        }
 
-        if !matches!(v.fields, syn::Fields::Unit) {
-            result = Some(Error::new(v.span(), "every variant must be Unit kind, like `None`")
-                        .into_compile_error());
-        }
-        &v.ident
-    }).collect::<Vec<_>>();
+            if !matches!(v.fields, syn::Fields::Unit) {
+                result = Some(
+                    Error::new(v.span(), "every variant must be Unit kind, like `None`")
+                        .into_compile_error(),
+                );
+            }
+            &v.ident
+        })
+        .collect::<Vec<_>>();
 
     if let Some(ret) = result {
         return ret.into();
@@ -81,7 +88,7 @@ pub fn inttype(input: TokenStream) -> TokenStream {
         quote! {
             impl TryFrom<#ty> for #ident {
                 type Error = #ty;
-    
+
                 fn try_from(value: #ty) -> Result<Self, Self::Error> {
                     #![allow(non_upper_case_globals)]
                     #(
@@ -96,10 +103,9 @@ pub fn inttype(input: TokenStream) -> TokenStream {
         }
     };
 
-    token_stream.extend(from.into_iter());
+    token_stream.extend(from);
     token_stream.into()
 }
-
 
 #[proc_macro_derive(IntRange, attributes(range,))]
 pub fn new_inttype(input: TokenStream) -> TokenStream {
@@ -133,18 +139,46 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
 
     for v in item.variants.iter() {
         match &v.fields {
-            syn::Fields::Named(_) => return Error::new(v.fields.span(), "variant can only be Unit/Unamed kind, Examples: A=0,B(u8),").into_compile_error().into(),
+            syn::Fields::Named(_) => {
+                return Error::new(
+                    v.fields.span(),
+                    "variant can only be Unit/Unamed kind, Examples: A=0,B(u8),",
+                )
+                .into_compile_error()
+                .into()
+            }
             //#[repr(u8)] #[derive(IntType)] enum { #[range(1..5)]a(u8), }
             syn::Fields::Unnamed(fields) => {
                 if fields.unnamed.len() != 1 {
-                    return Error::new(fields.span(), &format!("Unnamed variant can only have 1 field, here it must be {}", ty.into_token_stream())).into_compile_error().into();
+                    return Error::new(
+                        fields.span(),
+                        format!(
+                            "Unnamed variant can only have 1 field, here it must be {}",
+                            ty.into_token_stream()
+                        ),
+                    )
+                    .into_compile_error()
+                    .into();
                 }
                 if v.discriminant.is_some() {
-                    return Error::new(v.discriminant.as_ref().unwrap().1.span(), "Unnamed variant can't have discriminant").into_compile_error().into();
+                    return Error::new(
+                        v.discriminant.as_ref().unwrap().1.span(),
+                        "Unnamed variant can't have discriminant",
+                    )
+                    .into_compile_error()
+                    .into();
                 }
                 for unamed in fields.unnamed.iter() {
                     if unamed.ty.to_token_stream().to_string() != ty_str {
-                        return Error::new(fields.span(), &format!("Unnamed variant's field must be the same type as its repr: {}", ty.into_token_stream())).into_compile_error().into();
+                        return Error::new(
+                            fields.span(),
+                            format!(
+                                "Unnamed variant's field must be the same type as its repr: {}",
+                                ty.into_token_stream()
+                            ),
+                        )
+                        .into_compile_error()
+                        .into();
                     }
                 }
 
@@ -154,7 +188,12 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
                     if attr.path().is_ident("range") {
                         range_cnt += 1;
                         if range_cnt > 1 {
-                            return Error::new(attr.path().span(), "Only one range attribute must be provided for Unnamed variant").into_compile_error().into();
+                            return Error::new(
+                                attr.path().span(),
+                                "Only one range attribute must be provided for Unnamed variant",
+                            )
+                            .into_compile_error()
+                            .into();
                         }
                         let range: ExprRange = match attr.parse_args() {
                             Ok(r) => r,
@@ -175,13 +214,20 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
                     }
                 }
                 if range_cnt != 1 {
-                    return Error::new(fields.span(), "one range attribute must be provided for Unnamed variant").into_compile_error().into();
+                    return Error::new(
+                        fields.span(),
+                        "one range attribute must be provided for Unnamed variant",
+                    )
+                    .into_compile_error()
+                    .into();
                 }
-            },
+            }
             //#[repr(u8)] #[derive(IntType)] enum { a=0, }
             syn::Fields::Unit => {
-                if v.attrs.iter().any(|attr|attr.path().is_ident("range")) {
-                    return Error::new(v.span(), "Unit variant should not have `range` attribute").into_compile_error().into();
+                if v.attrs.iter().any(|attr| attr.path().is_ident("range")) {
+                    return Error::new(v.span(), "Unit variant should not have `range` attribute")
+                        .into_compile_error()
+                        .into();
                 }
                 // let s = v.ident.to_string();
                 // println!("v: {}", v.to_token_stream());
@@ -189,18 +235,25 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
                 match v.discriminant.as_ref() {
                     Some((_, n)) => {
                         let s = n.to_token_stream().to_string();
-                        let range = syn::parse_str::<ExprRange>(format!("{}..={}", s, s).as_str()).unwrap();
+                        let range =
+                            syn::parse_str::<ExprRange>(format!("{}..={}", s, s).as_str()).unwrap();
                         if let Err(e) = checker.substract(&range) {
                             // println!("e.span(): {:?}", e.span());
-                            return Error::new(n.span(), e.to_string()).into_compile_error().into();
+                            return Error::new(n.span(), e.to_string())
+                                .into_compile_error()
+                                .into();
                         }
                         ranges.push(range);
                         unit_discriminant.push(n);
                         unit_variants.push(&v.ident);
-                    },
-                    None => return Error::new(v.span(), "must specify discriminant, like A=0").into_compile_error().into(),
+                    }
+                    None => {
+                        return Error::new(v.span(), "must specify discriminant, like A=0")
+                            .into_compile_error()
+                            .into()
+                    }
                 }
-            },
+            }
         }
         // println!("ident: {}", v.ident.to_string());
     }
@@ -213,7 +266,6 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
     // println!("unit_discriminant: {:?}", unit_discriminant.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
     // println!("unnamed_variants: {:?}", unnamed_variants);
     // println!("unnamed_ranges: {:?}", unnamed_ranges.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
-
 
     let mut token_stream = quote! {
         impl From<#ident> for #ty {
@@ -292,7 +344,7 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
         quote! {
             impl TryFrom<#ty> for #ident {
                 type Error = #ty;
-    
+
                 fn try_from(value: #ty) -> Result<Self, Self::Error> {
                     #[allow(unreachable_patterns)]
                     #[allow(non_contiguous_range_endpoints)]
@@ -310,6 +362,6 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
         }
     };
 
-    token_stream.extend(ty_to_ident.into_iter());
+    token_stream.extend(ty_to_ident);
     token_stream.into()
 }
