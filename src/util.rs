@@ -3,7 +3,9 @@ use core::ops::RangeInclusive;
 use crate::int_range_ext::*;
 use syn::{spanned::Spanned, Error, ExprRange};
 
-fn expr_to_range<T: Utils>(expr: &ExprRange) -> Result<RangeInclusive<T>, Error>
+fn expr_to_range<T: Integer + core::str::FromStr>(
+    expr: &ExprRange,
+) -> Result<RangeInclusive<T>, Error>
 where
     <T as core::str::FromStr>::Err: core::fmt::Display,
 {
@@ -18,7 +20,7 @@ where
             },
             _ => return Err(Error::new(expr.span(), "only literal allowed here")),
         },
-        None => T::min_(),
+        None => T::MIN,
     };
 
     let end = match &expr.end {
@@ -32,7 +34,7 @@ where
             },
             _ => return Err(Error::new(expr.span(), "only literal allowed here")),
         },
-        None => T::max_(),
+        None => T::MAX,
     };
 
     // println!("expr: {} {:?}", expr.into_token_stream(), expr.span());

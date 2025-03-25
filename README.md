@@ -6,12 +6,9 @@ Auto implement `From<enum> for inttype`, and `TryFrom<inttype> for enum`.
 if one(only one) variant is tagged with `#[default]`, then `From<inttype> for enum` will be implemented
 
 
-Usage examples:  
+# Usage examples
 
-```toml
-[dependencies]
-inttype-enum = "0.2"
-```
+## IntType
 
 ```rust
 use inttype_enum::IntType;
@@ -43,6 +40,8 @@ enum Method {
 assert!(matches!(1.into(), Method::A));
 assert!(matches!(0.into(), Method::C));
 ```
+
+## IntRange
 
 ```rust
 use inttype_enum::IntRange;
