@@ -61,4 +61,5 @@ assert_eq!(Test::try_from(0), Ok(Test::A));
 assert!(0u8 == Test::A.into());
 assert_eq!(Test::B(16).is_valid(), false);
 assert_eq!(Test::try_from(16), Ok(Test::C(16)));
+assert_eq!(Test::ranges(), &[0..=0, 1..=15, 16..=255]);
 ```

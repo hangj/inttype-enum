@@ -42,14 +42,17 @@ fn test() {
     assert_eq!(u8::from(Test2::B(11)), 11);
     assert_eq!(u8::from(Test2::B(16)), 16);
     assert_eq!(Test2::B(16).is_valid(), false);
+    assert_eq!(Test2::ranges(), &[0..=0, 1..=15, 16..=255]);
 
     assert_eq!(Test2::from(16), Test2::C(16));
     assert_eq!(Test2::try_from(16), Ok(Test2::C(16)));
     assert!(255u8 == Test3::from(255).into());
+    assert_eq!(Test3::ranges(), &[0..=255]);
 
     assert_eq!(Test4::try_from(0), Ok(Test4::A(0)));
     assert_eq!(Test4::try_from(16), Ok(Test4::A(16)));
     assert_eq!(Test4::try_from(127), Ok(Test4::A(127)));
     assert_eq!(Test4::try_from(128), Ok(Test4::B(128)));
     assert_eq!(Test4::try_from(255), Err(255));
+    assert_eq!(Test4::ranges(), &[0..=127, 128..=254]);
 }

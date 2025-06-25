@@ -267,6 +267,11 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
     // println!("unnamed_variants: {:?}", unnamed_variants);
     // println!("unnamed_ranges: {:?}", unnamed_ranges.iter().map(|r| r.to_token_stream()).collect::<Vec<_>>());
 
+    let all_ranges = ranges
+        .iter()
+        .map(|v| checker.expr_to_inclusive_expr(v).unwrap())
+        .collect::<Vec<_>>();
+
     let mut token_stream = quote! {
         impl From<#ident> for #ty {
             fn from(value: #ident) -> Self {
@@ -307,6 +312,9 @@ pub fn new_inttype(input: TokenStream) -> TokenStream {
         // }
 
         impl #ident {
+            pub fn ranges() -> &'static [core::ops::RangeInclusive<#ty>] {
+                &[#(#all_ranges,)*]
+            }
             pub fn is_valid(&self) -> bool {
                 match self {
                     #(

@@ -33,7 +33,7 @@ pub(crate) enum Error {
 }
 
 impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let s = match self {
             Error::EmptyRange => "empty range",
             Error::SelfDoNotContainOtherRange => "self do not contain the other range",
@@ -50,7 +50,7 @@ where
     Self: RangeBounds<T>,
 {
     /// Check if the range is empty
-    fn is_empty(&self) -> bool;
+    fn is_empty_range(&self) -> bool;
 
     /// `self` must not be empty
     fn to_inclusive(&self) -> Result<RangeInclusive<T>, Error>;
@@ -72,7 +72,7 @@ where
 }
 
 impl<T: Integer, U: RangeBounds<T>> IntRangeExt<T> for U {
-    fn is_empty(&self) -> bool {
+    fn is_empty_range(&self) -> bool {
         match self.start_bound() {
             Bound::Included(s) => {
                 match self.end_bound() {
@@ -126,7 +126,7 @@ impl<T: Integer, U: RangeBounds<T>> IntRangeExt<T> for U {
     }
 
     fn to_inclusive(&self) -> Result<RangeInclusive<T>, Error> {
-        if self.is_empty() {
+        if self.is_empty_range() {
             return Err(Error::EmptyRange);
         }
 
@@ -146,7 +146,7 @@ impl<T: Integer, U: RangeBounds<T>> IntRangeExt<T> for U {
     }
 
     fn contains_subrange<Other: RangeBounds<T>>(&self, other: &Other) -> Result<bool, Error> {
-        if self.is_empty() || other.is_empty() {
+        if self.is_empty_range() || other.is_empty_range() {
             return Err(Error::EmptyRange);
         }
 
@@ -320,15 +320,15 @@ impl<T: Integer, U: RangeBounds<T>> IntRangeExt<T> for U {
             Bound::Unbounded => T::ONE..=T::ZERO,
         };
 
-        let r1 = if r1.is_empty() { None } else { Some(r1) };
+        let r1 = if r1.is_empty_range() { None } else { Some(r1) };
 
-        let r2 = if r2.is_empty() { None } else { Some(r2) };
+        let r2 = if r2.is_empty_range() { None } else { Some(r2) };
 
         Ok((r1, r2))
     }
 
     fn intersect<Other: RangeBounds<T>>(&self, other: &Other) -> Result<bool, Error> {
-        if self.is_empty() || other.is_empty() {
+        if self.is_empty_range() || other.is_empty_range() {
             return Err(Error::EmptyRange);
         }
         if self.contains_subrange(other).unwrap_or(false)
@@ -430,8 +430,8 @@ mod tests {
         assert_eq!((1..0).is_empty(), true);
         assert_eq!((1..=0).is_empty(), true);
 
-        assert_eq!((..u8::MIN).is_empty(), true);
-        assert_eq!((u8::MAX..).is_empty(), false);
+        assert_eq!((..u8::MIN).is_empty_range(), true);
+        assert_eq!((u8::MAX..).is_empty_range(), false);
     }
 
     #[test]
